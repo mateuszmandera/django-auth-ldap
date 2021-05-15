@@ -419,7 +419,7 @@ class PosixGroupType(LDAPGroupType):
                 )
 
             search = group_search.search_with_additional_term_string(filterstr)
-            groups = search.execute(ldap_user.connection)
+            groups = search.execute(ldap_user.connection.connection)
         except (KeyError, IndexError):
             pass
 
@@ -434,7 +434,7 @@ class PosixGroupType(LDAPGroupType):
             user_uid = ldap_user.attrs["uid"][0]
 
             try:
-                is_member = ldap_user.connection.compare_s(
+                is_member = ldap_user.connection.connection.compare_s(
                     group_dn, "memberUid", user_uid.encode()
                 )
             except (ldap.UNDEFINED_TYPE, ldap.NO_SUCH_ATTRIBUTE):
@@ -443,7 +443,7 @@ class PosixGroupType(LDAPGroupType):
             if not is_member:
                 try:
                     user_gid = ldap_user.attrs["gidNumber"][0]
-                    is_member = ldap_user.connection.compare_s(
+                    is_member = ldap_user.connection.connection.compare_s(
                         group_dn, "gidNumber", user_gid.encode()
                     )
                 except (ldap.UNDEFINED_TYPE, ldap.NO_SUCH_ATTRIBUTE):
@@ -475,11 +475,11 @@ class MemberDNGroupType(LDAPGroupType):
         search = group_search.search_with_additional_terms(
             {self.member_attr: ldap_user.dn}
         )
-        return search.execute(ldap_user.connection)
+        return search.execute(ldap_user.connection.connection)
 
     def is_member(self, ldap_user, group_dn):
         try:
-            result = ldap_user.connection.compare_s(
+            result = ldap_user.connection.connection.compare_s(
                 group_dn, self.member_attr, ldap_user.dn.encode()
             )
         except (ldap.UNDEFINED_TYPE, ldap.NO_SUCH_ATTRIBUTE):
@@ -517,7 +517,7 @@ class NestedMemberDNGroupType(LDAPGroupType):
 
         while len(member_dn_set) > 0:
             group_infos = self.find_groups_with_any_member(
-                member_dn_set, group_search, ldap_user.connection
+                member_dn_set, group_search, ldap_user.connection.connection
             )
             new_group_info_map = {info[0]: info for info in group_infos}
             group_info_map.update(new_group_info_map)

@@ -249,10 +249,7 @@ class LDAPBackend:
         return username
 
 
-class _LDAPConnectionMixIn:
-    _connection = None
-    _connection_bound = False
-
+class _LDAPBase:
     def __init__(self, backend):
         self.backend = backend
 
@@ -264,12 +261,10 @@ class _LDAPConnectionMixIn:
     def settings(self):
         return self.backend.settings
 
-    @property
-    def connection(self):
-        if not self._connection_bound:
-            self._bind()
 
-        return self._get_connection()
+class LDAPConnection(_LDAPBase):
+    _connection = None
+    _connection_bound = False
 
     def _bind(self):
         """
@@ -312,7 +307,7 @@ class _LDAPConnectionMixIn:
 
             self._connection = self.backend.ldap.initialize(uri, bytes_mode=False)
 
-            for opt, value in self.settings.CONNECTION_OPTIONS.items():
+            for opt, value in self.settings.connection.connection_OPTIONS.items():
                 self._connection.set_option(opt, value)
 
             if self.settings.START_TLS:
@@ -321,8 +316,15 @@ class _LDAPConnectionMixIn:
 
         return self._connection
 
+    @property
+    def connection(self):
+        if not self._connection_bound:
+            self._bind()
 
-class _LDAPUser(_LDAPConnectionMixIn):
+        return self._get_connection()
+
+
+class _LDAPUser(_LDAPBase):
     """
     Represents an LDAP user and ultimately fields all requests that the
     backend receives. This class exists for two reasons. First, it's
@@ -356,6 +358,7 @@ class _LDAPUser(_LDAPConnectionMixIn):
         ignored.
         """
         super().__init__(backend)
+        self.connection = LDAPConnection(backend)
 
         self._username = username
         self._request = request
@@ -500,6 +503,15 @@ class _LDAPUser(_LDAPConnectionMixIn):
 
         return user
 
+    def _bind(self):
+        self.connection._bind()
+
+    def _bind_as(self, bind_dn, bind_password, sticky=False):
+        return self.connection._bind_as(bind_dn, bind_password, sticky)
+
+    def _get_connection(self):
+        return self.connection._get_connection()
+
     #
     # Public properties (callbacks). These are all lazy for performance reasons.
     #
@@ -550,7 +562,7 @@ class _LDAPUser(_LDAPConnectionMixIn):
             search = LDAPSearch(
                 self.dn, ldap.SCOPE_BASE, attrlist=self.settings.USER_ATTRLIST
             )
-            results = search.execute(self.connection)
+            results = search.execute(self.connection.connection)
 
             if results is not None and len(results) > 0:
                 self._user_attrs = results[0][1]
@@ -596,7 +608,7 @@ class _LDAPUser(_LDAPConnectionMixIn):
                 "AUTH_LDAP_USER_SEARCH must be an LDAPSearch instance."
             )
 
-        results = search.execute(self.connection, {"user": self._username})
+        results = search.execute(self.connection.connection, {"user": self._username})
         if results is not None and len(results) == 1:
             (user_dn, self._user_attrs) = next(iter(results))
         else:

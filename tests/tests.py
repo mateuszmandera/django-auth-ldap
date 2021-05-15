@@ -159,7 +159,9 @@ class LDAPTest(TestCase):
         )
         user = authenticate(username="alice", password="password")
 
-        self.assertEqual(user.ldap_user.connection.get_option(ldap.OPT_REFERRALS), 0)
+        self.assertEqual(
+            user.ldap_user.connection.connection.get_option(ldap.OPT_REFERRALS), 0
+        )
 
     def test_callable_server_uri(self):
         request = RequestFactory().get("/")
