@@ -1,3 +1,3 @@
 from setuptools import setup
 
-setup()
+setup(version="2.4.0zulip1")
